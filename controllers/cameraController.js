@@ -15,10 +15,10 @@ const createCamera = async (req, res) => {
 // Obtener todas las cámaras
 const getAllCameras = async (req, res) => {
   try {
-    const cameras = await Camera.find().populate("nvr");
-    res.status(200).json(cameras);
+    const cameras = await Camera.find().populate("nvr", "name"); // Obtiene el NVR y solo su nombre
+    res.json(cameras);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ message: "Error al obtener las cámaras" });
   }
 };
 
