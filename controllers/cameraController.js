@@ -172,5 +172,57 @@ const updateCamera = async (req, res) => {
 };
 
 
+// Eliminar una cámara
+const deleteCamera = async (req, res) => {
+  try {
+    const { cameraId } = req.params;
 
-module.exports = { createCamera, getAllCameras, assignCameraToNvr, getCameraHistory, updateCamera };
+    // Validar si el ID es un ObjectId válido
+    if (!mongoose.Types.ObjectId.isValid(cameraId)) {
+      return res.status(400).json({ message: "El ID de la cámara no es válido" });
+    }
+
+    // Buscar y eliminar la cámara
+    const deletedCamera = await Camera.findByIdAndDelete(cameraId);
+
+    // Si la cámara no existe, devolver un error 404
+    if (!deletedCamera) {
+      return res.status(404).json({ message: "Cámara no encontrada" });
+    }
+
+    res.status(200).json({ message: "Cámara eliminada correctamente", deletedCamera });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al eliminar la cámara", error: error.message });
+  }
+};
+
+
+// Obtener una cámara por su ID
+const getCameraById = async (req, res) => {
+  try {
+    const { cameraId } = req.params;
+
+    // Validar si el ID es un ObjectId válido
+    if (!mongoose.Types.ObjectId.isValid(cameraId)) {
+      return res.status(400).json({ message: "El ID de la cámara no es válido" });
+    }
+
+    // Buscar la cámara por ID
+    const camera = await Camera.findById(cameraId).populate("nvr", "name");
+
+    if (!camera) {
+      return res.status(404).json({ message: "Cámara no encontrada" });
+    }
+
+    // Devolver la cámara encontrada
+    res.status(200).json(camera);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error al obtener la cámara", error: error.message });
+  }
+};
+
+
+
+module.exports = { createCamera, getAllCameras, assignCameraToNvr, getCameraHistory, updateCamera, deleteCamera, getCameraById};

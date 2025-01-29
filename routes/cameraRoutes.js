@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { createCamera, getAllCameras, assignCameraToNvr, getCameraHistory, updateCamera} = require("../controllers/cameraController");
+const { createCamera, getAllCameras, assignCameraToNvr, getCameraHistory, updateCamera, deleteCamera, getCameraById} = require("../controllers/cameraController");
 
 // Ruta para crear una nueva cámara
 router.post("/", createCamera);
@@ -17,5 +17,12 @@ router.get("/:cameraId/history", getCameraHistory);
 
 // Ruta para actualizar una cámara
 router.patch('/:cameraId', updateCamera);
+
+// Ruta para eliminar una cámara
+router.delete('/:cameraId', deleteCamera);
+
+
+// Ruta para obtener una cámara por su ID
+router.get("/:cameraId", getCameraById);
 
 module.exports = router;
