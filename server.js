@@ -5,12 +5,17 @@ const dotenv = require("dotenv");
 const connectDB = require("./db");
 const cameraRoutes = require("./routes/cameraRoutes");
 const nvrRoutes = require("./routes/nvrRoutes");
+const bodyParser = require("body-parser");
 
 // Configurar dotenv para usar variables de entorno
 dotenv.config();
 
 // Crear una instancia de Express
 const app = express();
+
+// Configurar un límite de 50 MB para los datos entrantes (ajusta según tus necesidades)
+app.use(bodyParser.json({ limit: '50mb' }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 
 // Middlewares
 app.use(cors());

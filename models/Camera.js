@@ -17,6 +17,11 @@ const cameraSchema = new mongoose.Schema(
       ],
       validate: [arrayLimit, "Solo se permiten un máximo de 10 reasignaciones"],
     },
+    macAddress: { type: String, required: true }, // Nuevo campo obligatorio
+    serialNumber: { type: String, required: true }, // Nuevo campo obligatorio
+    firmware: { type: String }, // Nuevo campo opcional
+    resolution: { type: String }, // Nuevo campo opcional
+    fps: { type: Number }, // Nuevo campo opcional
   },
   { timestamps: true } // Esto agrega los campos createdAt y updatedAt automáticamente
 );
