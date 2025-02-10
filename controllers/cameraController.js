@@ -5,6 +5,7 @@ const multer = require('multer');
 const xlsx = require('xlsx'); // Librería para leer archivos Excel
 const fs = require('fs');
 const path = require('path');
+const moment = require('moment-timezone');
 
 // Configuración de multer para la subida del archivo
 const storage = multer.diskStorage({
@@ -262,68 +263,73 @@ const getCameraById = async (req, res) => {
 
 // Importar cámaras desde un archivo Excel
 const importCamerasFromExcel = async (req, res) => {
-  upload(req, res, async (err) => { // Marcar como asíncrono
+  upload(req, res, async (err) => {
     if (err) {
       console.error("Error de Multer:", err.message);
-      return res.status(400).json({ message: 'Error al subir el archivo', error: err.message });
+      return res.status(400).json({ message: "Error al subir el archivo", error: err.message });
     }
 
     if (!req.file) {
-      return res.status(400).json({ message: 'No se ha enviado ningún archivo.' });
+      return res.status(400).json({ message: "No se ha enviado ningún archivo." });
     }
 
-    const filePath = path.join(__dirname, '..', 'uploads', req.file.filename);
+    const filePath = path.join(__dirname, "..", "uploads", req.file.filename);
 
     try {
-      // Leer el archivo de Excel
       const workbook = xlsx.readFile(filePath);
-      const sheetName = workbook.SheetNames[0]; // Obtener la primera hoja
+      const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-
-      // Convertir los datos de la hoja en un array de objetos
       const data = xlsx.utils.sheet_to_json(worksheet);
 
-      // Validar los encabezados del archivo
       if (!validateExcelHeaders(data)) {
-        return res.status(400).json({ message: 'El archivo Excel no contiene las columnas correctas.' });
+        return res.status(400).json({ message: "El archivo Excel no contiene las columnas correctas." });
       }
 
       let importedCameras = 0;
+      let skippedCameras = 0;
       const importedCamerasData = [];
 
-      // Procesar los datos e importar las cámaras
       for (let cameraData of data) {
-        // Validar que los campos obligatorios estén presentes
         if (!cameraData.macAddress || !cameraData.serialNumber) {
           console.log("Fila omitida (campos faltantes):", cameraData);
-          continue; // Salta las filas con campos requeridos vacíos
+          skippedCameras++;
+          continue;
         }
 
         try {
-          console.log("Importando cámara:", cameraData);
+          // Verificar si la IP ya existe
+          const existingCamera = await Camera.findOne({ ipAddress: cameraData.ipAddress });
+
+          if (existingCamera) {
+            console.log(`Cámara con IP ${cameraData.ipAddress} ya existe. Omitiendo...`);
+            skippedCameras++;
+            continue;
+          }
+
           const camera = await Camera.create(cameraData);
           importedCameras++;
           importedCamerasData.push(camera);
         } catch (cameraErr) {
           console.error("Error al importar la cámara:", cameraErr.message);
+          skippedCameras++; // Si hay error en una cámara, se cuenta como omitida
         }
       }
 
-      // Eliminar el archivo subido después de procesarlo
       fs.unlinkSync(filePath);
 
-      // Verificar si se importaron cámaras
       if (importedCameras === 0) {
-        return res.status(400).json({ message: 'No se han importado cámaras o el formato es incorrecto.' });
+        return res.status(400).json({ message: "No se han importado cámaras o todas ya existían en la base de datos." });
       }
 
       res.status(201).json({
-        message: `${importedCameras} cámaras importadas correctamente`,
-        cameras: importedCamerasData,  // Devolver las cámaras importadas
+        message: `Importación completada.`,
+        importedCount: importedCameras,
+        skippedCount: skippedCameras,
+        cameras: importedCamerasData,
       });
     } catch (err) {
       console.error("Error al procesar el archivo Excel:", err.message);
-      return res.status(500).json({ message: 'Error al procesar el archivo Excel', error: err.message });
+      return res.status(500).json({ message: "Error al procesar el archivo Excel", error: err.message });
     }
   });
 };
