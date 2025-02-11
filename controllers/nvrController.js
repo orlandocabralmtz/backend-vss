@@ -1,3 +1,4 @@
+const mongoose = require("mongoose"); // Importa mongoose
 const NVR = require("../models/Nvr");
 
 // Crear un nuevo NVR
@@ -34,6 +35,13 @@ const getAllNvrs = async (req, res) => {
 const getNvrById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Validar que el ID tenga el formato correcto
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de NVR no válido." });
+    }
+
+    // Buscar el NVR y poblar las cámaras
     const nvr = await NVR.findById(id).populate("cameras");
 
     if (!nvr) {
@@ -42,6 +50,7 @@ const getNvrById = async (req, res) => {
 
     res.status(200).json(nvr);
   } catch (error) {
+    console.error("Error en getNvrById:", error);
     res.status(500).json({ message: "Error al obtener el NVR." });
   }
 };
@@ -52,6 +61,12 @@ const updateNvr = async (req, res) => {
     const { id } = req.params;
     const updatedData = req.body;
 
+    // Validar que el ID tenga el formato correcto
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de NVR no válido." });
+    }
+
+    // Buscar y actualizar el NVR
     const nvr = await NVR.findByIdAndUpdate(id, updatedData, { new: true });
 
     if (!nvr) {
@@ -60,6 +75,7 @@ const updateNvr = async (req, res) => {
 
     res.status(200).json(nvr);
   } catch (error) {
+    console.error("Error en updateNvr:", error);
     res.status(500).json({ message: "Error al actualizar el NVR." });
   }
 };
@@ -68,19 +84,29 @@ const updateNvr = async (req, res) => {
 const deleteNvr = async (req, res) => {
   try {
     const { id } = req.params;
-    const nvr = await NVR.findById(id);
+
+    // Validar que el ID tenga el formato correcto
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de NVR no válido." });
+    }
+
+    // Buscar el NVR y verificar si tiene cámaras asignadas
+    const nvr = await NVR.findById(id).populate("cameras");
 
     if (!nvr) {
       return res.status(404).json({ message: "NVR no encontrado." });
     }
 
-    if (nvr.cameras.length > 0) {
+    // Verificar si el NVR tiene cámaras asignadas
+    if (nvr.cameras && nvr.cameras.length > 0) {
       return res.status(400).json({ message: "No se puede eliminar un NVR con cámaras asignadas." });
     }
 
+    // Eliminar el NVR
     await NVR.findByIdAndDelete(id);
     res.status(200).json({ message: "NVR eliminado correctamente." });
   } catch (error) {
+    console.error("Error en deleteNvr:", error);
     res.status(500).json({ message: "Error al eliminar el NVR." });
   }
 };

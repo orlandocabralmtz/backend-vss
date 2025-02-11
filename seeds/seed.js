@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const Camera = require("../models/Camera");
-const Nvr = require("../models/Nvr");
 
 // Configurar dotenv para las variables de entorno
 dotenv.config();
@@ -20,21 +19,10 @@ const seedDatabase = async () => {
   try {
     // Eliminar datos existentes
     await Camera.deleteMany();
-    await Nvr.deleteMany();
 
     console.log("Datos existentes eliminados");
 
-    // Crear NVRs
-    const nvrs = await Nvr.insertMany([
-      { name: "NVR 1", ipAddress: "192.168.1.201", maxChannels: 16, location: "Sala 1" },
-      { name: "NVR 2", ipAddress: "192.168.1.202", maxChannels: 16, location: "Sala 2" },
-      { name: "NVR 3", ipAddress: "192.168.1.203", maxChannels: 8, location: "Sala 3" },
-      { name: "NVR 4", ipAddress: "192.168.1.204", maxChannels: 8, location: "Sala 4" },
-    ]);
-
-    console.log("NVRs añadidos");
-
-    // Crear Cámaras
+    // Crear Cámaras sin NVRs
     const cameras = [];
     for (let i = 1; i <= 20; i++) {
       cameras.push({
@@ -42,6 +30,13 @@ const seedDatabase = async () => {
         model: `Modelo X${i}`,
         ipAddress: `192.168.1.${100 + i}`,
         location: `Ubicación ${Math.ceil(i / 5)}`, // Cambia de ubicación cada 5 cámaras
+        macAddress: `00:14:22:01:23:${i.toString().padStart(2, '0')}`, // MAC Address único
+        serialNumber: `SN${1000 + i}`, // Número de serie único
+        firmware: `v1.0.${i}`, // Firmware de ejemplo
+        resolution: `1920x1080`, // Resolución por defecto
+        fps: 30, // Frames por segundo por defecto
+        nvr: null, // Sin NVR asignado
+        assignedDate: null, // Sin fecha de asignación
       });
     }
 
