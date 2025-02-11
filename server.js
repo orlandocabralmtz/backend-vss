@@ -5,6 +5,7 @@ const dotenv = require("dotenv");
 const connectDB = require("./db");
 const cameraRoutes = require("./routes/cameraRoutes");
 const nvrRoutes = require("./routes/nvrRoutes");
+const userRoutes = require("./routes/userRoutes");
 const bodyParser = require("body-parser");
 
 // Configurar dotenv para usar variables de entorno
@@ -33,6 +34,7 @@ app.get("/", (req, res) => {
 // Importar las rutas de los recursos
 app.use("/api/cameras", cameraRoutes);
 app.use("/api/nvrs", nvrRoutes);
+app.use("/api/users", userRoutes);
 
 
 
