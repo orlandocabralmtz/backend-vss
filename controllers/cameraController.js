@@ -89,40 +89,74 @@ const assignCameraToNvr = async (req, res) => {
   try {
     const { cameraId, nvrId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(cameraId) || !mongoose.Types.ObjectId.isValid(nvrId)) {
-      return res.status(400).json({ message: "ID inválido" });
+    // Validar IDs
+    if (!mongoose.Types.ObjectId.isValid(cameraId)) {
+      return res.status(400).json({ message: "ID de cámara inválido" });
+    }
+    if (!mongoose.Types.ObjectId.isValid(nvrId)) {
+      return res.status(400).json({ message: "ID de NVR inválido" });
     }
 
+    // Buscar la cámara y el NVR
     const camera = await Camera.findById(cameraId);
     const newNvr = await Nvr.findById(nvrId);
 
-    if (!camera || !newNvr) {
-      return res.status(404).json({ message: "Cámara o NVR no encontrado" });
+    if (!camera) {
+      return res.status(404).json({ message: "Cámara no encontrada" });
+    }
+    if (!newNvr) {
+      return res.status(404).json({ message: "NVR no encontrado" });
+    }
+
+    // Verificar si el NVR seleccionado es el mismo que el actual
+    if (camera.nvr?.toString() === newNvr._id.toString()) {
+      return res.status(400).json({ message: "La cámara ya está asignada a este NVR" });
     }
 
     // Verificar si el NVR tiene capacidad
     if (newNvr.cameras.length >= newNvr.maxChannels) {
-      return res.status(400).json({ message: "El nuevo NVR alcanzó su capacidad máxima" });
+      return res.status(400).json({ message: "El NVR ha alcanzado su capacidad máxima" });
     }
 
-    // Reasignar la cámara al NVR
+    // Crear una nueva reasignación
     const reassignment = {
       nvr: newNvr._id,
       date: new Date(),
     };
-    camera.reassignments.push(reassignment);
+
+    // Verificar si ya existe una reasignación para este NVR
+    const existingReassignment = camera.reassignments.find(
+      (r) => r.nvr.toString() === newNvr._id.toString()
+    );
+
+    if (!existingReassignment) {
+      // Agregar la nueva reasignación solo si no existe
+      camera.reassignments.push(reassignment);
+    }
+
+    // Guardar el NVR anterior antes de actualizar
+    const previousNvrId = camera.nvr;
+
+    // Actualizar el NVR de la cámara
     camera.nvr = newNvr._id;
     camera.assignedDate = new Date();
+
+    // Guardar la cámara actualizada
     await camera.save();
 
-    newNvr.cameras.push(camera._id);
-    await newNvr.save();
+    // Agregar la cámara al nuevo NVR
+    if (!newNvr.cameras.includes(camera._id)) {
+      newNvr.cameras.push(camera._id);
+      await newNvr.save();
+    }
 
-    // Eliminar la cámara del NVR anterior
-    if (camera.nvr) {
-      const previousNvr = await Nvr.findById(camera.nvr);
+    // Eliminar la cámara del NVR anterior (si existe)
+    if (previousNvrId) {
+      const previousNvr = await Nvr.findById(previousNvrId);
       if (previousNvr) {
-        previousNvr.cameras = previousNvr.cameras.filter((id) => id.toString() !== camera._id.toString());
+        previousNvr.cameras = previousNvr.cameras.filter(
+          (id) => id.toString() !== camera._id.toString()
+        );
         await previousNvr.save();
       }
     }
@@ -133,10 +167,10 @@ const assignCameraToNvr = async (req, res) => {
       newNvr,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("Error en assignCameraToNvr:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };
-
 // Obtener historial de una cámara
 const getCameraHistory = async (req, res) => {
   try {
@@ -181,69 +215,57 @@ const updateCamera = async (req, res) => {
       return res.status(404).json({ message: 'Cámara no encontrada' });
     }
 
-    // Validar que los campos obligatorios estén presentes
-    if (!updateData.name || !updateData.macAddress || !updateData.serialNumber) {
-      return res.status(400).json({ message: 'Los campos "name", "macAddress" y "serialNumber" son obligatorios' });
-    }
-
-    // Validar que la dirección MAC tenga el formato correcto (simple validación con expresión regular)
-    const macAddressRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-    if (updateData.macAddress && !macAddressRegex.test(updateData.macAddress)) {
-      return res.status(400).json({ message: 'La dirección MAC no tiene un formato válido' });
-    }
-
-    // Validar que el número de serie no esté duplicado
-    const existingSerial = await Camera.findOne({ serialNumber: updateData.serialNumber });
-    if (existingSerial && existingSerial._id.toString() !== camera._id.toString()) {
-      return res.status(400).json({ message: 'El número de serie ya está registrado en otra cámara' });
-    }
-
-    // Validar que el NVR existe si se proporciona
-    if (updateData.nvr) {
-      const newNvr = await Nvr.findById(updateData.nvr);
-      if (!newNvr) {
-        return res.status(404).json({ message: 'NVR no encontrado' });
-      }
-
-      // Verificar si el NVR tiene capacidad para la cámara
-      if (newNvr.cameras.length >= newNvr.maxChannels) {
-        return res.status(400).json({ message: 'El NVR ha alcanzado su capacidad máxima' });
-      }
-
-      // Si el NVR es diferente, registrar la reasignación
-      if (camera.nvr && camera.nvr.toString() !== updateData.nvr.toString()) {
-        const reassignment = {
-          nvr: updateData.nvr,
-          date: new Date(),
-        };
-        camera.reassignments.push(reassignment);
-        camera.nvr = updateData.nvr;
-        camera.assignedDate = new Date();
-
-        // Eliminar la cámara del NVR anterior
-        const previousNvr = await Nvr.findById(camera.nvr);
-        if (previousNvr) {
-          previousNvr.cameras = previousNvr.cameras.filter((id) => id.toString() !== camera._id.toString());
-          await previousNvr.save();
-        }
-
-        // Agregar la cámara al nuevo NVR
-        newNvr.cameras.push(camera._id);
-        await newNvr.save();
-      }
-    }
-
-    // Actualizar campos de la cámara con los datos proporcionados
-    if (updateData.name) camera.name = updateData.name;
-    if (updateData.location) camera.location = updateData.location;
-    if (updateData.model) camera.model = updateData.model;
-    if (updateData.ipAddress) camera.ipAddress = updateData.ipAddress;
+    // Actualizar campos básicos
     if (updateData.macAddress) camera.macAddress = updateData.macAddress;
     if (updateData.serialNumber) camera.serialNumber = updateData.serialNumber;
     if (updateData.firmware) camera.firmware = updateData.firmware;
     if (updateData.resolution) camera.resolution = updateData.resolution;
     if (updateData.fps) camera.fps = updateData.fps;
-    if (updateData.status) camera.status = updateData.status;
+
+    // Actualizar el NVR si es necesario
+    if (updateData.nvr && (camera.nvr === null || camera.nvr.toString() !== updateData.nvr.toString())) {
+      // Verificar si el nuevo NVR existe
+      const newNvr = await Nvr.findById(updateData.nvr);
+      if (!newNvr) {
+        return res.status(404).json({ message: 'NVR no encontrado' });
+      }
+
+      // Verificar si el nuevo NVR tiene capacidad
+      if (newNvr.cameras.length >= newNvr.maxChannels) {
+        return res.status(400).json({ message: 'El NVR ha alcanzado su capacidad máxima' });
+      }
+
+      // Verificar si ya existe una reasignación para este NVR
+      const existingReassignment = camera.reassignments.find(
+        (r) => r.nvr.toString() === updateData.nvr.toString()
+      );
+
+      // Si no existe una reasignación para este NVR, agregar una nueva
+      if (!existingReassignment) {
+        const reassignment = {
+          nvr: updateData.nvr,
+          date: new Date(),
+        };
+        camera.reassignments.push(reassignment);
+      }
+
+      // Actualizar el NVR de la cámara
+      camera.nvr = updateData.nvr;
+      camera.assignedDate = new Date();
+
+      // Eliminar la cámara del NVR anterior
+      if (camera.nvr) {
+        const previousNvr = await Nvr.findById(camera.nvr);
+        if (previousNvr) {
+          previousNvr.cameras = previousNvr.cameras.filter((id) => id.toString() !== camera._id.toString());
+          await previousNvr.save();
+        }
+      }
+
+      // Agregar la cámara al nuevo NVR
+      newNvr.cameras.push(camera._id);
+      await newNvr.save();
+    }
 
     // Guardar los cambios en la cámara
     const updatedCamera = await camera.save();

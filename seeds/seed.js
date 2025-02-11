@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const Camera = require("../models/Camera");
+const Nvr = require("../models/Nvr");
 
 // Configurar dotenv para las variables de entorno
 dotenv.config();
@@ -19,10 +20,57 @@ const seedDatabase = async () => {
   try {
     // Eliminar datos existentes
     await Camera.deleteMany();
-
+    await Nvr.deleteMany(); // Limpiar también los NVRs existentes
     console.log("Datos existentes eliminados");
 
-    // Crear Cámaras sin NVRs
+    // Crear 4 NVRs
+    const nvrData = [
+      {
+        name: "NVR 1",
+        ipAddress: "192.168.1.10",
+        macAddress: "00:14:22:01:23:01",
+        model: "Modelo NVR1",
+        maxChannels: 6,
+        capacity: 1000,
+        location: "Oficina A",
+        branch: "Sucursal 1",
+      },
+      {
+        name: "NVR 2",
+        ipAddress: "192.168.1.11",
+        macAddress: "00:14:22:01:23:02",
+        model: "Modelo NVR2",
+        maxChannels: 6,
+        capacity: 1000,
+        location: "Oficina B",
+        branch: "Sucursal 2",
+      },
+      {
+        name: "NVR 3",
+        ipAddress: "192.168.1.12",
+        macAddress: "00:14:22:01:23:03",
+        model: "Modelo NVR3",
+        maxChannels: 6,
+        capacity: 1000,
+        location: "Oficina C",
+        branch: "Sucursal 3",
+      },
+      {
+        name: "NVR 4",
+        ipAddress: "192.168.1.13",
+        macAddress: "00:14:22:01:23:04",
+        model: "Modelo NVR4",
+        maxChannels: 6,
+        capacity: 1000,
+        location: "Oficina D",
+        branch: "Sucursal 4",
+      },
+    ];
+
+    const nvrInstances = await Nvr.insertMany(nvrData);
+    console.log("NVRs añadidos");
+
+    // Crear 20 Cámaras sin asignar NVR
     const cameras = [];
     for (let i = 1; i <= 20; i++) {
       cameras.push({

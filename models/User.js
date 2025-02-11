@@ -1,45 +1,45 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Definición del esquema de usuario
+// User schema definition
 const userSchema = new mongoose.Schema({
-  nombre: {
+  name: {
     type: String,
     required: true,
   },
-  correo: {
+  email: {
     type: String,
     required: true,
-    unique: true, // Asegura que no haya dos usuarios con el mismo correo
-    match: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/, // Validación básica de correo
+    unique: true, // Ensures that there are no duplicate emails
+    match: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/, // Basic email validation
   },
-  contraseña: {
+  password: {
     type: String,
     required: true,
-    minlength: 6, // Asegura que la contraseña tenga al menos 6 caracteres
+    minlength: 6, // Ensures the password is at least 6 characters long
   },
-  rol: {
+  role: {
     type: String,
-    enum: ['admin', 'junior', 'readonly'], // Roles predefinidos
-    default: 'junior', // Valor predeterminado si no se especifica
+    enum: ['admin', 'junior', 'readonly'], // Predefined roles
+    default: 'junior', // Default value if no role is specified
   },
 });
 
-// Encriptar la contraseña antes de guardar el usuario
+// Encrypt the password before saving the user
 userSchema.pre('save', async function (next) {
-  if (!this.isModified('contraseña')) return next(); // Si la contraseña no fue modificada, no se hace nada
+  if (!this.isModified('password')) return next(); // If the password was not modified, do nothing
   try {
-    const salt = await bcrypt.genSalt(10); // Genera un salt para encriptar la contraseña
-    this.contraseña = await bcrypt.hash(this.contraseña, salt); // Encripta la contraseña
-    next(); // Continúa con el proceso de guardado
+    const salt = await bcrypt.genSalt(10); // Generate a salt to encrypt the password
+    this.password = await bcrypt.hash(this.password, salt); // Encrypt the password
+    next(); // Continue with the save process
   } catch (err) {
-    next(err); // Si hay un error, lo pasa al siguiente middleware
+    next(err); // If there's an error, pass it to the next middleware
   }
 });
 
-// Método para verificar si la contraseña ingresada coincide con la almacenada
+// Method to check if the entered password matches the stored password
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.contraseña); // Compara la contraseña ingresada con la encriptada
+  return await bcrypt.compare(enteredPassword, this.password); // Compare the entered password with the encrypted one
 };
 
 const User = mongoose.model('User', userSchema);
