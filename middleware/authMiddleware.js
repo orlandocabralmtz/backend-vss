@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 
+
 const protect = (roles = []) => {
   return (req, res, next) => {
     // Obtener el token desde el encabezado Authorization
