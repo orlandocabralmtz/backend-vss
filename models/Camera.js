@@ -17,13 +17,20 @@ const cameraSchema = new mongoose.Schema(
       ],
       validate: [arrayLimit, "Solo se permiten un máximo de 10 reasignaciones"],
     },
-    macAddress: { type: String, required: true }, // Nuevo campo obligatorio
-    serialNumber: { type: String, required: true }, // Nuevo campo obligatorio
-    firmware: { type: String }, // Nuevo campo opcional
-    resolution: { type: String }, // Nuevo campo opcional
-    fps: { type: Number }, // Nuevo campo opcional
+    macAddress: { type: String, required: true },
+    serialNumber: { type: String, required: true },
+    firmware: { type: String },
+    resolution: { type: String },
+    fps: { type: Number },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // El usuario que crea la cámara
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // El usuario que actualiza la cámara
+    updateHistory: [{
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Usuario que hizo la actualización
+      date: { type: Date, default: Date.now }, // Fecha de la actualización
+      changes: { type: String }, // Descripción de los cambios realizados
+    }],
   },
-  { timestamps: true } // Esto agrega los campos createdAt y updatedAt automáticamente
+  { timestamps: true }
 );
 
 function arrayLimit(val) {

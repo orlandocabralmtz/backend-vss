@@ -21,7 +21,7 @@ const protect = (roles = []) => {
       req.user = decoded; // Guardar la información del usuario en la solicitud
 
       // Si no se proporcionan roles, permite el acceso a todos
-      if (roles.length && !roles.includes(req.user.rol)) {
+      if (roles.length && !roles.includes(req.user.role)) {
         return res.status(403).json({ mensaje: 'No tienes permisos para acceder a esta ruta' });
       }
 

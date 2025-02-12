@@ -43,7 +43,6 @@ const validateExcelHeaders = (data) => {
   return expectedHeaders.every(header => headers.includes(header));
 };
 
-// Crear una nueva cámara
 const createCamera = async (req, res) => {
   try {
     const { name, model, ipAddress, location, nvr, assignedDate, macAddress, serialNumber, firmware, resolution, fps } = req.body;
@@ -63,7 +62,8 @@ const createCamera = async (req, res) => {
       serialNumber,
       firmware,
       resolution,
-      fps
+      fps,
+      createdBy: req.user ? req.user.userId : null // Registrar quién crea la cámara
     };
 
     const camera = await Camera.create(cameraData);
@@ -74,10 +74,16 @@ const createCamera = async (req, res) => {
   }
 };
 
+
+
 // Obtener todas las cámaras
 const getAllCameras = async (req, res) => {
   try {
-    const cameras = await Camera.find().populate("nvr", "name"); // Poblamos solo el nombre del NVR
+    const cameras = await Camera.find()
+      .populate("nvr", "name")          // Poblamos solo el nombre del NVR
+      .populate("createdBy", "name")    // Poblamos solo el nombre del usuario creador
+      .populate("updatedBy", "name");   // Poblamos solo el nombre del usuario que actualizó
+
     res.json(cameras);
   } catch (error) {
     res.status(500).json({ message: "Error al obtener las cámaras" });
@@ -245,6 +251,7 @@ const updateCamera = async (req, res) => {
         const reassignment = {
           nvr: updateData.nvr,
           date: new Date(),
+          updatedBy: req.user ? req.user.userId : null  // Registrar quién hace la actualización
         };
         camera.reassignments.push(reassignment);
       }
@@ -267,6 +274,9 @@ const updateCamera = async (req, res) => {
       await newNvr.save();
     }
 
+    // Registrar quién actualiza la cámara
+    camera.updatedBy= req.user ? req.user.userId : null
+
     // Guardar los cambios en la cámara
     const updatedCamera = await camera.save();
 
@@ -276,6 +286,7 @@ const updateCamera = async (req, res) => {
     res.status(500).json({ message: 'Error al actualizar la cámara', error: error.message });
   }
 };
+
 
 // Eliminar una cámara
 const deleteCamera = async (req, res) => {
