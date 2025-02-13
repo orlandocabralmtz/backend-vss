@@ -1,48 +1,56 @@
 const jwt = require('jsonwebtoken');
 
-
 const protect = (roles = []) => {
-  return (req, res, next) => {
-    // Obtener el token desde el encabezado Authorization
-    let token = req.headers.authorization;
+    return (req, res, next) => {
+        // Obtener el token desde el encabezado Authorization
+        let token = req.headers.authorization;
 
-    if (!token || !token.startsWith('Bearer ')) {
-      return res.status(401).json({ mensaje: 'No se proporcionó un token' });
-    }
+        // Loguear el token recibido para asegurar que el cliente lo esté enviando
+        console.log('Token recibido desde el cliente:', token);
 
-    token = token.split(' ')[1]; // Eliminar "Bearer " y obtener solo el token
+        // Comprobar si el token existe y tiene el formato correcto
+        if (!token || !token.startsWith('Bearer ')) {
+            console.log('No se proporcionó un token o el formato es incorrecto');
+            return res.status(401).json({ mensaje: 'No se proporcionó un token o formato incorrecto' });
+        }
 
-    try {
-      console.log('Token recibido:', token); // Verificar el token recibido
+        token = token.split(' ')[1]; // Eliminar "Bearer " y obtener solo el token
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verificar el token
-      console.log('Token decodificado:', decoded); // Verificar el contenido del token
+        // Verificar si el token es null o vacío después de procesarlo
+        if (!token || token === 'null') {
+            console.log('Token vacío o malformado');
+            return res.status(401).json({ mensaje: 'No se proporcionó un token' });
+        }
 
-      req.user = decoded; // Guardar la información del usuario en la solicitud
+        console.log('Token procesado:', token); // Verificar el token procesado
 
-      // Si no se proporcionan roles, permite el acceso a todos
-      if (roles.length && !roles.includes(req.user.role)) {
-        return res.status(403).json({ mensaje: 'No tienes permisos para acceder a esta ruta' });
-      }
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET); // Verificar el token
+            console.log('Token decodificado:', decoded); // Verificar el contenido del token
 
-      next(); // Continuar al siguiente middleware o controlador
-    } catch (error) {
-      console.error('Error al verificar el token:', error);
+            req.user = decoded; // Guardar la información del usuario en la solicitud
 
-      // Manejar error de token malformado
-      if (error instanceof jwt.JsonWebTokenError) {
-        return res.status(401).json({ mensaje: 'Token malformado o inválido' });
-      }
+            // Si no se proporcionan roles, permite el acceso a todos
+            if (roles.length && !roles.includes(req.user.role)) {
+                return res.status(403).json({ mensaje: 'No tienes permisos para acceder a esta ruta' });
+            }
 
-      // Manejar otros tipos de error relacionados con el token (como expirado)
-      if (error instanceof jwt.TokenExpiredError) {
-        return res.status(401).json({ mensaje: 'Token expirado' });
-      }
+            next(); // Continuar al siguiente middleware o controlador
+        } catch (error) {
+            console.error('Error al verificar el token:', error);
 
-      // Error genérico de token inválido
-      return res.status(401).json({ mensaje: 'Token inválido o expirado', error: error.message });
-    }
-  };
+            // Manejar diferentes errores de JWT
+            if (error instanceof jwt.JsonWebTokenError) {
+                return res.status(401).json({ mensaje: 'Token malformado o inválido' });
+            }
+
+            if (error instanceof jwt.TokenExpiredError) {
+                return res.status(401).json({ mensaje: 'Token expirado' });
+            }
+
+            return res.status(401).json({ mensaje: 'Token inválido', error: error.message });
+        }
+    };
 };
 
 module.exports = protect;
