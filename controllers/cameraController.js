@@ -221,16 +221,51 @@ const updateCamera = async (req, res) => {
       return res.status(404).json({ message: 'Cámara no encontrada' });
     }
 
-    // Actualizar todos los campos básicos
-    if (updateData.name) camera.name = updateData.name;
-    if (updateData.model) camera.model = updateData.model;
-    if (updateData.ipAddress) camera.ipAddress = updateData.ipAddress;
-    if (updateData.location) camera.location = updateData.location;
-    if (updateData.macAddress) camera.macAddress = updateData.macAddress;
-    if (updateData.serialNumber) camera.serialNumber = updateData.serialNumber;
-    if (updateData.firmware) camera.firmware = updateData.firmware;
-    if (updateData.resolution) camera.resolution = updateData.resolution;
-    if (updateData.fps) camera.fps = updateData.fps;
+    // Objeto para almacenar los cambios realizados
+    const changes = [];
+
+    // Función para registrar cambios
+    const logChange = (field, oldValue, newValue) => {
+      changes.push(`Cambio de ${field}: de '${oldValue}' a '${newValue}'`);
+    };
+
+    // Actualizar todos los campos básicos y registrar cambios
+    if (updateData.name && camera.name !== updateData.name) {
+      logChange('nombre', camera.name, updateData.name);
+      camera.name = updateData.name;
+    }
+    if (updateData.model && camera.model !== updateData.model) {
+      logChange('modelo', camera.model, updateData.model);
+      camera.model = updateData.model;
+    }
+    if (updateData.ipAddress && camera.ipAddress !== updateData.ipAddress) {
+      logChange('IP', camera.ipAddress, updateData.ipAddress);
+      camera.ipAddress = updateData.ipAddress;
+    }
+    if (updateData.location && camera.location !== updateData.location) {
+      logChange('ubicación', camera.location, updateData.location);
+      camera.location = updateData.location;
+    }
+    if (updateData.macAddress && camera.macAddress !== updateData.macAddress) {
+      logChange('MAC Address', camera.macAddress, updateData.macAddress);
+      camera.macAddress = updateData.macAddress;
+    }
+    if (updateData.serialNumber && camera.serialNumber !== updateData.serialNumber) {
+      logChange('número de serie', camera.serialNumber, updateData.serialNumber);
+      camera.serialNumber = updateData.serialNumber;
+    }
+    if (updateData.firmware && camera.firmware !== updateData.firmware) {
+      logChange('firmware', camera.firmware, updateData.firmware);
+      camera.firmware = updateData.firmware;
+    }
+    if (updateData.resolution && camera.resolution !== updateData.resolution) {
+      logChange('resolución', camera.resolution, updateData.resolution);
+      camera.resolution = updateData.resolution;
+    }
+    if (updateData.fps && camera.fps !== updateData.fps) {
+      logChange('FPS', camera.fps, updateData.fps);
+      camera.fps = updateData.fps;
+    }
 
     // Actualizar el NVR si es necesario
     if (updateData.nvr && (camera.nvr === null || camera.nvr.toString() !== updateData.nvr.toString())) {
@@ -255,10 +290,13 @@ const updateCamera = async (req, res) => {
         const reassignment = {
           nvr: updateData.nvr,
           date: new Date(),
-          updatedBy: req.user ? req.user.userId : null  // Registrar quién hace la actualización
+          updatedBy: req.user ? req.user.userId : null, // Registrar quién hace la actualización
         };
         camera.reassignments.push(reassignment);
       }
+
+      // Registrar el cambio de NVR
+      logChange('NVR', camera.nvr?.toString() || 'Sin asignar', updateData.nvr);
 
       // Actualizar el NVR de la cámara
       camera.nvr = updateData.nvr;
@@ -280,6 +318,15 @@ const updateCamera = async (req, res) => {
 
     // Registrar quién actualiza la cámara
     camera.updatedBy = req.user ? req.user.userId : null;
+
+    // Agregar los cambios al historial de actualizaciones
+    if (changes.length > 0) {
+      camera.updateHistory.push({
+        user: req.user ? req.user.userId : null,
+        date: new Date(),
+        changes: changes.join(', ').replace(/\\"/g, '"'), // Reemplaza \" por "
+      });
+    }
 
     // Guardar los cambios en la cámara
     const updatedCamera = await camera.save();
@@ -405,6 +452,8 @@ const importCamerasFromExcel = async (req, res) => {
     }
   });
 };
+
+
 
 
 module.exports = {

@@ -6,6 +6,19 @@ const bcrypt = require('bcryptjs');
 const registerUser = async (req, res) => {
   const { name, email, password, role } = req.body;
 
+  // Validación explícita de que el correo no sea null o vacío
+  if (!email || email.trim() === '') {
+    return res.status(400).json({ message: 'El correo no puede estar vacío' });
+  }
+
+  // Validación adicional para asegurar que el correo sea válido
+  const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'El correo no tiene un formato válido' });
+  }
+
+  console.log('Datos recibidos:', req.body); // Verificar los datos recibidos
+
   try {
     // Verificar si el correo ya existe
     const userExists = await User.findOne({ email });
@@ -26,10 +39,15 @@ const registerUser = async (req, res) => {
 
     res.status(201).json({ token }); // Devolver el token al usuario
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Error en el servidor al registrar el usuario' });
+    console.error('Error al registrar el usuario:', err);
+    if (err.code === 11000) {
+      res.status(400).json({ message: 'El correo ya está registrado' });
+    } else {
+      res.status(500).json({ message: 'Error en el servidor al registrar el usuario' });
+    }
   }
 };
+
 
 // Obtener todos los usuarios registrados
 const getUsers = async (req, res) => {
@@ -123,14 +141,12 @@ const deleteUser = async (req, res) => {
     res.status(200).json({ message: 'Usuario eliminado exitosamente' });
   } catch (error) {
     console.error('Error al eliminar el usuario:', error.message);
-    // Si el error es por un token inválido o cualquier otro tipo de fallo, se captura y se maneja
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Token inválido o expirado' });
     }
     if (error.name === 'CastError' && error.kind === 'ObjectId') {
       return res.status(400).json({ message: 'ID de usuario inválido' });
     }
-    // Para otros tipos de error del servidor
     res.status(500).json({ message: 'Error al eliminar el usuario', error: error.message });
   }
 };
