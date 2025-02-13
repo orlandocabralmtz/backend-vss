@@ -221,7 +221,11 @@ const updateCamera = async (req, res) => {
       return res.status(404).json({ message: 'Cámara no encontrada' });
     }
 
-    // Actualizar campos básicos
+    // Actualizar todos los campos básicos
+    if (updateData.name) camera.name = updateData.name;
+    if (updateData.model) camera.model = updateData.model;
+    if (updateData.ipAddress) camera.ipAddress = updateData.ipAddress;
+    if (updateData.location) camera.location = updateData.location;
     if (updateData.macAddress) camera.macAddress = updateData.macAddress;
     if (updateData.serialNumber) camera.serialNumber = updateData.serialNumber;
     if (updateData.firmware) camera.firmware = updateData.firmware;
@@ -275,7 +279,7 @@ const updateCamera = async (req, res) => {
     }
 
     // Registrar quién actualiza la cámara
-    camera.updatedBy= req.user ? req.user.userId : null
+    camera.updatedBy = req.user ? req.user.userId : null;
 
     // Guardar los cambios en la cámara
     const updatedCamera = await camera.save();
@@ -286,7 +290,6 @@ const updateCamera = async (req, res) => {
     res.status(500).json({ message: 'Error al actualizar la cámara', error: error.message });
   }
 };
-
 
 // Eliminar una cámara
 const deleteCamera = async (req, res) => {
