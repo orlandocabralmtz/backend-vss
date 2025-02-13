@@ -34,6 +34,7 @@ const cameraSchema = new mongoose.Schema(
     // Nuevos campos: usuario y contraseña (no obligatorios y sin encriptación)
     username: { type: String }, // Nombre de usuario para la cámara
     password: { type: String }, // Contraseña para la cámara
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" }, // Referencia al proyecto
   },
   { timestamps: true }
 );

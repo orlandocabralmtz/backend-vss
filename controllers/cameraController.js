@@ -59,6 +59,7 @@ const createCamera = async (req, res) => {
       fps,
       username,
       password,
+      project, // Nuevo campo: ID del proyecto
     } = req.body;
 
     // Validar campos obligatorios
@@ -75,22 +76,31 @@ const createCamera = async (req, res) => {
       model,
       ipAddress,
       location,
-      nvr: nvr || null, // Si no se proporciona un NVR, se establece como null
+      nvr: nvr || null,
       assignedDate,
       macAddress,
       serialNumber,
       firmware,
       resolution,
       fps,
-      username, // Campo opcional
-      password, // Campo opcional
-      createdBy: req.user ? req.user.userId : null, // Registrar quién crea la cámara
+      username,
+      password,
+      project: project || null, // Asignar el proyecto si se proporciona
+      createdBy: req.user ? req.user.userId : null,
     };
 
     // Crear la cámara en la base de datos
     const camera = await Camera.create(cameraData);
 
-    // Responder con la cámara creada
+    // Si se proporcionó un proyecto, agregar la cámara al proyecto
+    if (project) {
+      const projectToUpdate = await Project.findById(project);
+      if (projectToUpdate) {
+        projectToUpdate.cameras.push(camera._id);
+        await projectToUpdate.save();
+      }
+    }
+
     res.status(201).json(camera);
   } catch (error) {
     // Manejar errores de validación de Mongoose
@@ -99,7 +109,7 @@ const createCamera = async (req, res) => {
       return res.status(400).json({ message: "Error de validación", errors });
     }
 
-    // Manejar errores de duplicación (por ejemplo, si el serialNumber o macAddress ya existen)
+    // Manejar errores de duplicación
     if (error.code === 11000) {
       return res.status(400).json({
         message: "Error de duplicación",
@@ -342,6 +352,38 @@ const updateCamera = async (req, res) => {
       await newNvr.save();
     }
 
+    // Actualizar el proyecto si es necesario
+    if (updateData.project && camera.project?.toString() !== updateData.project) {
+      // Verificar si el nuevo proyecto existe
+      const newProject = await Project.findById(updateData.project);
+      if (!newProject) {
+        return res.status(404).json({ message: 'Proyecto no encontrado' });
+      }
+
+      // Registrar el cambio de proyecto
+      logChange('proyecto', camera.project?.toString() || 'Sin asignar', updateData.project);
+
+      // Actualizar el proyecto de la cámara
+      camera.project = updateData.project;
+
+      // Agregar la cámara al nuevo proyecto
+      if (!newProject.cameras.includes(cameraId)) {
+        newProject.cameras.push(cameraId);
+        await newProject.save();
+      }
+
+      // Eliminar la cámara del proyecto anterior (si existe)
+      if (camera.project) {
+        const previousProject = await Project.findById(camera.project);
+        if (previousProject) {
+          previousProject.cameras = previousProject.cameras.filter(
+            (id) => id.toString() !== cameraId
+          );
+          await previousProject.save();
+        }
+      }
+    }
+
     // Registrar quién actualiza la cámara
     camera.updatedBy = req.user ? req.user.userId : null;
 
@@ -478,6 +520,55 @@ const importCamerasFromExcel = async (req, res) => {
     }
   });
 };
+
+
+
+
+// // Asignar una camara a un proyecto
+// const assignCameraToProject = async (req, res) => {
+//   try {
+//     const { cameraId, projectId } = req.params;
+
+//     // Validar IDs
+//     if (!mongoose.Types.ObjectId.isValid(cameraId)) {
+//       return res.status(400).json({ message: "ID de cámara inválido." });
+//     }
+//     if (!mongoose.Types.ObjectId.isValid(projectId)) {
+//       return res.status(400).json({ message: "ID de proyecto inválido." });
+//     }
+
+//     // Buscar la cámara y el proyecto
+//     const camera = await Camera.findById(cameraId);
+//     const project = await Project.findById(projectId);
+
+//     if (!camera) {
+//       return res.status(404).json({ message: "Cámara no encontrada." });
+//     }
+//     if (!project) {
+//       return res.status(404).json({ message: "Proyecto no encontrado." });
+//     }
+
+//     // Verificar si la cámara ya está asignada a otro proyecto
+//     if (camera.project && camera.project.toString() !== projectId) {
+//       return res.status(400).json({ message: "La cámara ya está asignada a otro proyecto." });
+//     }
+
+//     // Asignar la cámara al proyecto
+//     camera.project = projectId;
+//     await camera.save();
+
+//     // Agregar la cámara al proyecto (si no está ya incluida)
+//     if (!project.cameras.includes(cameraId)) {
+//       project.cameras.push(cameraId);
+//       await project.save();
+//     }
+
+//     res.status(200).json({ message: "Cámara asignada al proyecto con éxito.", camera, project });
+//   } catch (error) {
+//     console.error("Error en assignCameraToProject:", error);
+//     res.status(500).json({ message: "Error al asignar la cámara al proyecto.", error: error.message });
+//   }
+// };
 
 
 

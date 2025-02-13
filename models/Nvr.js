@@ -12,8 +12,14 @@ const nvrSchema = new mongoose.Schema(
     channelsOccupied: { type: Number, default: 0 }, // Número de canales ocupados
     capacity: { type: Number, required: true }, // Capacidad de almacenamiento (GB/TB)
     location: { type: String, required: true }, // Ubicación física
-    branch: { type: String, required: true }, // Sucursal o delegación
+    brand: { type: String, required: true }, // Sucursal o delegación
     cameras: [{ type: mongoose.Schema.Types.ObjectId, ref: "Camera" }], // Cámaras asignadas (relación)
+    project: { type: mongoose.Schema.Types.ObjectId, ref: "Project" }, // Referencia al proyecto
+    platform: { type: String, required: true }, // Plataforma (obligatorio)
+    windowsUser: { type: String, required: true }, // Usuario de Windows (obligatorio)
+    windowsPassword: { type: String, required: true }, // Contraseña de Windows (obligatorio)
+    softwareUser: { type: String, required: true }, // Usuario del software (obligatorio)
+    softwarePassword: { type: String, required: true }, // Contraseña del software (obligatorio)
   },
   { timestamps: true } // Registra automáticamente "createdAt" y "updatedAt"
 );
