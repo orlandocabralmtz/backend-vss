@@ -1,4 +1,5 @@
 const Camera = require("../models/Camera");
+const Project = require("../models/Project");
 const Nvr = require("../models/Nvr");
 const mongoose = require("mongoose");
 const multer = require('multer');
@@ -302,6 +303,7 @@ const updateCamera = async (req, res) => {
     // Actualizar campos opcionales (username y password)
     updateField('username', updateData.username);
     updateField('password', updateData.password);
+    updateField('project'), updateData.project;
 
     // Actualizar el NVR si es necesario
     if (updateData.nvr && (camera.nvr === null || camera.nvr.toString() !== updateData.nvr.toString())) {
@@ -353,6 +355,7 @@ const updateCamera = async (req, res) => {
     }
 
     // Actualizar el proyecto si es necesario
+    // Actualizar el proyecto si es necesario
     if (updateData.project && camera.project?.toString() !== updateData.project) {
       // Verificar si el nuevo proyecto existe
       const newProject = await Project.findById(updateData.project);
@@ -360,8 +363,11 @@ const updateCamera = async (req, res) => {
         return res.status(404).json({ message: 'Proyecto no encontrado' });
       }
 
-      // Registrar el cambio de proyecto
-      logChange('proyecto', camera.project?.toString() || 'Sin asignar', updateData.project);
+      // Obtener el nombre del proyecto
+      const newProjectName = newProject.name;
+
+      // Registrar el cambio de proyecto (usando el nombre en lugar del ID)
+      logChange('proyecto', camera.project?.name || 'Sin asignar', newProjectName);
 
       // Actualizar el proyecto de la cámara
       camera.project = updateData.project;
