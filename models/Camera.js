@@ -24,11 +24,16 @@ const cameraSchema = new mongoose.Schema(
     fps: { type: Number },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // El usuario que crea la cámara
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // El usuario que actualiza la cámara
-    updateHistory: [{
-      user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Usuario que hizo la actualización
-      date: { type: Date, default: Date.now }, // Fecha de la actualización
-      changes: { type: String }, // Descripción de los cambios realizados
-    }],
+    updateHistory: [
+      {
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Usuario que hizo la actualización
+        date: { type: Date, default: Date.now }, // Fecha de la actualización
+        changes: { type: String }, // Descripción de los cambios realizados
+      },
+    ],
+    // Nuevos campos: usuario y contraseña (no obligatorios y sin encriptación)
+    username: { type: String }, // Nombre de usuario para la cámara
+    password: { type: String }, // Contraseña para la cámara
   },
   { timestamps: true }
 );

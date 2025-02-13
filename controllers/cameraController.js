@@ -45,32 +45,71 @@ const validateExcelHeaders = (data) => {
 
 const createCamera = async (req, res) => {
   try {
-    const { name, model, ipAddress, location, nvr, assignedDate, macAddress, serialNumber, firmware, resolution, fps } = req.body;
-
-    if (!macAddress || !serialNumber) {
-      return res.status(400).json({ message: "macAddress y serialNumber son obligatorios" });
-    }
-
-    const cameraData = {
+    const {
       name,
       model,
       ipAddress,
       location,
-      nvr: nvr || null,
+      nvr,
       assignedDate,
       macAddress,
       serialNumber,
       firmware,
       resolution,
       fps,
-      createdBy: req.user ? req.user.userId : null // Registrar quién crea la cámara
+      username,
+      password,
+    } = req.body;
+
+    // Validar campos obligatorios
+    if (!name || !model || !ipAddress || !location || !macAddress || !serialNumber) {
+      return res.status(400).json({
+        message:
+          "Los campos name, model, ipAddress, location, macAddress y serialNumber son obligatorios",
+      });
+    }
+
+    // Crear el objeto de datos de la cámara
+    const cameraData = {
+      name,
+      model,
+      ipAddress,
+      location,
+      nvr: nvr || null, // Si no se proporciona un NVR, se establece como null
+      assignedDate,
+      macAddress,
+      serialNumber,
+      firmware,
+      resolution,
+      fps,
+      username, // Campo opcional
+      password, // Campo opcional
+      createdBy: req.user ? req.user.userId : null, // Registrar quién crea la cámara
     };
 
+    // Crear la cámara en la base de datos
     const camera = await Camera.create(cameraData);
 
+    // Responder con la cámara creada
     res.status(201).json(camera);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    // Manejar errores de validación de Mongoose
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map((err) => err.message);
+      return res.status(400).json({ message: "Error de validación", errors });
+    }
+
+    // Manejar errores de duplicación (por ejemplo, si el serialNumber o macAddress ya existen)
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Error de duplicación",
+        details: "El serialNumber o macAddress ya están en uso",
+      });
+    }
+
+    // Manejar otros errores
+    console.error("Error en createCamera:", error);
+    res.status(500).json({ message: "Error al crear la cámara", error: error.message });
   }
 };
 
@@ -177,6 +216,8 @@ const assignCameraToNvr = async (req, res) => {
     res.status(500).json({ message: "Error interno del servidor" });
   }
 };
+
+
 // Obtener historial de una cámara
 const getCameraHistory = async (req, res) => {
   try {
@@ -229,43 +270,28 @@ const updateCamera = async (req, res) => {
       changes.push(`Cambio de ${field}: de '${oldValue}' a '${newValue}'`);
     };
 
-    // Actualizar todos los campos básicos y registrar cambios
-    if (updateData.name && camera.name !== updateData.name) {
-      logChange('nombre', camera.name, updateData.name);
-      camera.name = updateData.name;
-    }
-    if (updateData.model && camera.model !== updateData.model) {
-      logChange('modelo', camera.model, updateData.model);
-      camera.model = updateData.model;
-    }
-    if (updateData.ipAddress && camera.ipAddress !== updateData.ipAddress) {
-      logChange('IP', camera.ipAddress, updateData.ipAddress);
-      camera.ipAddress = updateData.ipAddress;
-    }
-    if (updateData.location && camera.location !== updateData.location) {
-      logChange('ubicación', camera.location, updateData.location);
-      camera.location = updateData.location;
-    }
-    if (updateData.macAddress && camera.macAddress !== updateData.macAddress) {
-      logChange('MAC Address', camera.macAddress, updateData.macAddress);
-      camera.macAddress = updateData.macAddress;
-    }
-    if (updateData.serialNumber && camera.serialNumber !== updateData.serialNumber) {
-      logChange('número de serie', camera.serialNumber, updateData.serialNumber);
-      camera.serialNumber = updateData.serialNumber;
-    }
-    if (updateData.firmware && camera.firmware !== updateData.firmware) {
-      logChange('firmware', camera.firmware, updateData.firmware);
-      camera.firmware = updateData.firmware;
-    }
-    if (updateData.resolution && camera.resolution !== updateData.resolution) {
-      logChange('resolución', camera.resolution, updateData.resolution);
-      camera.resolution = updateData.resolution;
-    }
-    if (updateData.fps && camera.fps !== updateData.fps) {
-      logChange('FPS', camera.fps, updateData.fps);
-      camera.fps = updateData.fps;
-    }
+    // Función para actualizar un campo si ha cambiado
+    const updateField = (field, newValue) => {
+      if (newValue !== undefined && camera[field] !== newValue) {
+        logChange(field, camera[field], newValue);
+        camera[field] = newValue;
+      }
+    };
+
+    // Actualizar campos básicos
+    updateField('name', updateData.name);
+    updateField('model', updateData.model);
+    updateField('ipAddress', updateData.ipAddress);
+    updateField('location', updateData.location);
+    updateField('macAddress', updateData.macAddress);
+    updateField('serialNumber', updateData.serialNumber);
+    updateField('firmware', updateData.firmware);
+    updateField('resolution', updateData.resolution);
+    updateField('fps', updateData.fps);
+
+    // Actualizar campos opcionales (username y password)
+    updateField('username', updateData.username);
+    updateField('password', updateData.password);
 
     // Actualizar el NVR si es necesario
     if (updateData.nvr && (camera.nvr === null || camera.nvr.toString() !== updateData.nvr.toString())) {
@@ -324,7 +350,7 @@ const updateCamera = async (req, res) => {
       camera.updateHistory.push({
         user: req.user ? req.user.userId : null,
         date: new Date(),
-        changes: changes.join(', ').replace(/\\"/g, '"'), // Reemplaza \" por "
+        changes: changes.join(', '),
       });
     }
 
