@@ -19,7 +19,7 @@ const createNvr = async (req, res) => {
       windowsPassword,
       softwareUser,
       softwarePassword,
-      project, // Nuevo campo: ID del proyecto
+      project, // ID del proyecto
     } = req.body;
 
     // Validar campos requeridos
@@ -39,6 +39,11 @@ const createNvr = async (req, res) => {
       !softwarePassword
     ) {
       return res.status(400).json({ message: "Todos los campos requeridos deben estar completos." });
+    }
+
+    // Validar que el projectId sea un ObjectId válido (si se proporciona)
+    if (project && !mongoose.Types.ObjectId.isValid(project)) {
+      return res.status(400).json({ message: "ID de proyecto no válido." });
     }
 
     // Crear nuevo NVR
@@ -66,8 +71,13 @@ const createNvr = async (req, res) => {
     if (project) {
       const projectToUpdate = await Project.findById(project);
       if (projectToUpdate) {
-        projectToUpdate.nvrs.push(nvr._id);
-        await projectToUpdate.save();
+        if (!projectToUpdate.nvrs.includes(nvr._id)) {
+          projectToUpdate.nvrs.push(nvr._id);
+          await projectToUpdate.save();
+        }
+      } else {
+        console.error("Proyecto no encontrado");
+        return res.status(404).json({ message: "Proyecto no encontrado." });
       }
     }
 
@@ -92,6 +102,7 @@ const createNvr = async (req, res) => {
     res.status(500).json({ message: "Error al crear el NVR", error: error.message });
   }
 };
+
 
 // Obtener todos los NVRs
 const getAllNvrs = async (req, res) => {
@@ -145,55 +156,12 @@ const updateNvr = async (req, res) => {
       return res.status(404).json({ message: "NVR no encontrado." });
     }
 
-    // Objeto para almacenar los cambios realizados
-    const changes = [];
-
-    // Función para registrar cambios
-    const logChange = (field, oldValue, newValue) => {
-      changes.push(`Cambio de ${field}: de '${oldValue}' a '${newValue}'`);
-    };
-
-    // Función para actualizar un campo si ha cambiado
-    const updateField = (field, newValue) => {
-      if (newValue !== undefined && nvr[field] !== newValue) {
-        logChange(field, nvr[field], newValue);
-        nvr[field] = newValue;
-      }
-    };
-
-    // Actualizar campos básicos
-    updateField('name', updatedData.name);
-    updateField('ipAddress', updatedData.ipAddress);
-    updateField('macAddress', updatedData.macAddress);
-    updateField('model', updatedData.model);
-    updateField('maxChannels', updatedData.maxChannels);
-    updateField('capacity', updatedData.capacity);
-    updateField('location', updatedData.location);
-    updateField('brand', updatedData.brand);
-    updateField('platform', updatedData.platform);
-    updateField('windowsUser', updatedData.windowsUser);
-    updateField('windowsPassword', updatedData.windowsPassword);
-    updateField('softwareUser', updatedData.softwareUser);
-    updateField('softwarePassword', updatedData.softwarePassword);
-
     // Actualizar el proyecto si es necesario
     if (updatedData.project && nvr.project?.toString() !== updatedData.project) {
       // Verificar si el nuevo proyecto existe
       const newProject = await Project.findById(updatedData.project);
       if (!newProject) {
         return res.status(404).json({ message: 'Proyecto no encontrado' });
-      }
-
-      // Registrar el cambio de proyecto
-      logChange('proyecto', nvr.project?.toString() || 'Sin asignar', updatedData.project);
-
-      // Actualizar el proyecto del NVR
-      nvr.project = updatedData.project;
-
-      // Agregar el NVR al nuevo proyecto
-      if (!newProject.nvrs.includes(id)) {
-        newProject.nvrs.push(id);
-        await newProject.save();
       }
 
       // Eliminar el NVR del proyecto anterior (si existe)
@@ -205,6 +173,15 @@ const updateNvr = async (req, res) => {
           );
           await previousProject.save();
         }
+      }
+
+      // Actualizar el proyecto del NVR
+      nvr.project = updatedData.project;
+
+      // Agregar el NVR al nuevo proyecto si no está ya incluido
+      if (!newProject.nvrs.includes(id)) {
+        newProject.nvrs.push(id);
+        await newProject.save();
       }
     }
 
@@ -240,12 +217,22 @@ const deleteNvr = async (req, res) => {
       return res.status(400).json({ message: "No se puede eliminar un NVR con cámaras asignadas." });
     }
 
+    // Eliminar el NVR de los proyectos que lo tengan asignado
+    if (nvr.project) {
+      const project = await Project.findById(nvr.project);
+      if (project) {
+        project.nvrs = project.nvrs.filter((nvrId) => nvrId.toString() !== id);
+        await project.save();
+      }
+    }
+
     // Eliminar el NVR
     await NVR.findByIdAndDelete(id);
+
     res.status(200).json({ message: "NVR eliminado correctamente." });
   } catch (error) {
     console.error("Error en deleteNvr:", error);
-    res.status(500).json({ message: "Error al eliminar el NVR." });
+    res.status(500).json({ message: "Error al eliminar el NVR.", error: error.message });
   }
 };
 

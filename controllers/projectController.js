@@ -59,7 +59,7 @@ const getAllProjects = async (req, res) => {
     // Obtener todos los proyectos y poblar las referencias
     const projects = await Project.find()
       .populate("cameras")
-      .populate("nvrs")
+      // .populate("nvrs")
       .populate("createdBy")
       .populate("updatedBy");
 

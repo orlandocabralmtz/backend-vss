@@ -48,3 +48,4 @@ router.get("/:cameraId", protect(["admin", "junior", "readOnly"]), getCameraById
 router.post("/import", protect(["admin", "junior"]), importCamerasFromExcel);  // Nueva ruta para importar cámaras
 
 module.exports = router;
+

@@ -44,6 +44,33 @@ const validateExcelHeaders = (data) => {
   return expectedHeaders.every(header => headers.includes(header));
 };
 
+
+
+// función para asignr camara a un projecto 
+const assignCameraToProject = async (camera, newProjectId) => {
+  // Si la cámara tiene un proyecto asignado y es diferente al nuevo proyecto
+  if (camera.project && camera.project._id.toString() !== newProjectId) {
+      const oldProject = await Project.findById(camera.project._id);
+      if (oldProject) {
+          // Eliminar la cámara del proyecto antiguo
+          oldProject.cameras = oldProject.cameras.filter(
+              (cam) => cam.toString() !== camera._id.toString()
+          );
+          await oldProject.save();
+      }
+  }
+
+  // Asignar la cámara al nuevo proyecto
+  const newProject = await Project.findById(newProjectId);
+  if (newProject) {
+      newProject.cameras.push(camera._id);
+      await newProject.save();
+  }
+};
+
+
+
+
 const createCamera = async (req, res) => {
   try {
     const {
@@ -93,6 +120,24 @@ const createCamera = async (req, res) => {
     // Crear la cámara en la base de datos
     const camera = await Camera.create(cameraData);
 
+    // **Actualizar el NVR si es necesario**
+    if (nvr) {
+      const nvrToUpdate = await Nvr.findById(nvr);
+      if (nvrToUpdate) {
+        // Verificar si el NVR tiene capacidad para agregar la cámara
+        if (nvrToUpdate.channelsOccupied >= nvrToUpdate.maxChannels) {
+          return res.status(400).json({
+            message: "El NVR ha alcanzado su capacidad máxima",
+          });
+        }
+
+        // Agregar la cámara al NVR
+        nvrToUpdate.cameras.push(camera._id);
+        nvrToUpdate.channelsOccupied += 1; // Incrementar el contador de canales ocupados
+        await nvrToUpdate.save();
+      }
+    }
+
     // Si se proporcionó un proyecto, agregar la cámara al proyecto
     if (project) {
       const projectToUpdate = await Project.findById(project);
@@ -123,6 +168,7 @@ const createCamera = async (req, res) => {
     res.status(500).json({ message: "Error al crear la cámara", error: error.message });
   }
 };
+
 
 
 
@@ -256,7 +302,6 @@ const getCameraHistory = async (req, res) => {
   }
 };
 
-// Actualizar una cámara
 const updateCamera = async (req, res) => {
   try {
     const { cameraId } = req.params;
@@ -304,9 +349,8 @@ const updateCamera = async (req, res) => {
     // Actualizar campos opcionales (username y password)
     updateField('username', updateData.username);
     updateField('password', updateData.password);
-    updateField('project'), updateData.project;
 
-    // Actualizar el NVR si es necesario
+    // **Actualizar el NVR si es necesario**
     if (updateData.nvr && (camera.nvr === null || camera.nvr.toString() !== updateData.nvr.toString())) {
       // Verificar si el nuevo NVR existe
       const newNvr = await Nvr.findById(updateData.nvr);
@@ -315,7 +359,7 @@ const updateCamera = async (req, res) => {
       }
 
       // Verificar si el nuevo NVR tiene capacidad
-      if (newNvr.cameras.length >= newNvr.maxChannels) {
+      if (newNvr.channelsOccupied >= newNvr.maxChannels) {
         return res.status(400).json({ message: 'El NVR ha alcanzado su capacidad máxima' });
       }
 
@@ -334,67 +378,62 @@ const updateCamera = async (req, res) => {
         camera.reassignments.push(reassignment);
       }
 
-      // Registrar el cambio de NVR
-      logChange('NVR', camera.nvr?.toString() || 'Sin asignar', updateData.nvr);
+      // Obtener el nombre del NVR anterior
+      let oldNvrName = 'Sin asignar';  // Valor por defecto
 
-      // Actualizar el NVR de la cámara
+      // Si la cámara tiene un NVR asignado, obtener el nombre del NVR
+      if (camera.nvr) {
+        const oldNvr = await Nvr.findById(camera.nvr);  // Buscar el NVR completo
+        if (oldNvr) {
+          oldNvrName = oldNvr.name || 'Sin asignar';  // Usar el nombre del NVR o 'Sin asignar'
+        }
+      }
+
+      // Registrar el cambio de NVR
+      logChange('NVR', oldNvrName, newNvr.name);
+
+      // Guardar la cámara antes de continuar con la eliminación del NVR anterior
+      const oldNvrId = camera.nvr;
       camera.nvr = updateData.nvr;
       camera.assignedDate = new Date();
 
+      // Guardar la cámara actualizada
+      await camera.save();
+
       // Eliminar la cámara del NVR anterior
-      if (camera.nvr) {
-        const previousNvr = await Nvr.findById(camera.nvr);
+      if (oldNvrId) {
+        const previousNvr = await Nvr.findById(oldNvrId);
         if (previousNvr) {
           previousNvr.cameras = previousNvr.cameras.filter((id) => id.toString() !== camera._id.toString());
+          previousNvr.channelsOccupied -= 1; // Decrementar los canales ocupados
           await previousNvr.save();
         }
       }
 
       // Agregar la cámara al nuevo NVR
       newNvr.cameras.push(camera._id);
-      await newNvr.save();
+      newNvr.channelsOccupied += 1; // Incrementar los canales ocupados
+      await newNvr.save(); // Guarda el NVR después de agregar la cámara
     }
 
-    // Actualizar el proyecto si es necesario
-    // Actualizar el proyecto si es necesario
+    // **Actualizar el proyecto solo si ha cambiado**
     if (updateData.project && camera.project?.toString() !== updateData.project) {
-      // Verificar si el nuevo proyecto existe
-      const newProject = await Project.findById(updateData.project);
-      if (!newProject) {
-        return res.status(404).json({ message: 'Proyecto no encontrado' });
-      }
-
-      // Obtener el nombre del proyecto
-      const newProjectName = newProject.name;
-
+      // Usar la función assignCameraToProject para gestionar el cambio de proyecto
+      await assignCameraToProject(camera, updateData.project);
+      
       // Registrar el cambio de proyecto (usando el nombre en lugar del ID)
-      logChange('proyecto', camera.project?.name || 'Sin asignar', newProjectName);
+      const newProject = await Project.findById(updateData.project);
+      const newProjectName = newProject ? newProject.name : 'Sin asignar';
+      logChange('proyecto', camera.project ? camera.project.name : 'Sin asignar', newProjectName);
 
       // Actualizar el proyecto de la cámara
       camera.project = updateData.project;
-
-      // Agregar la cámara al nuevo proyecto
-      if (!newProject.cameras.includes(cameraId)) {
-        newProject.cameras.push(cameraId);
-        await newProject.save();
-      }
-
-      // Eliminar la cámara del proyecto anterior (si existe)
-      if (camera.project) {
-        const previousProject = await Project.findById(camera.project);
-        if (previousProject) {
-          previousProject.cameras = previousProject.cameras.filter(
-            (id) => id.toString() !== cameraId
-          );
-          await previousProject.save();
-        }
-      }
     }
 
     // Registrar quién actualiza la cámara
     camera.updatedBy = req.user ? req.user.userId : null;
 
-    // Agregar los cambios al historial de actualizaciones
+    // Agregar los cambios al historial de actualizaciones solo si hay cambios
     if (changes.length > 0) {
       camera.updateHistory.push({
         user: req.user ? req.user.userId : null,
@@ -412,6 +451,11 @@ const updateCamera = async (req, res) => {
     res.status(500).json({ message: 'Error al actualizar la cámara', error: error.message });
   }
 };
+
+
+
+
+
 
 // Eliminar una cámara
 const deleteCamera = async (req, res) => {
