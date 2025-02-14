@@ -132,7 +132,8 @@ const getAllCameras = async (req, res) => {
     const cameras = await Camera.find()
       .populate("nvr", "name")          // Poblamos solo el nombre del NVR
       .populate("createdBy", "name")    // Poblamos solo el nombre del usuario creador
-      .populate("updatedBy", "name");   // Poblamos solo el nombre del usuario que actualizó
+      .populate("updatedBy", "name")   // Poblamos solo el nombre del usuario que actualizó
+      .populate("project", "name");     // Poblamos solo el nombre del proyecto
 
     res.json(cameras);
   } catch (error) {
