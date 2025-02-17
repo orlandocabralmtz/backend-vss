@@ -9,13 +9,15 @@ const {
   addCameraToProject,
   addNvrToProject,
 } = require("../controllers/projectController");
+const protect = require("../middleware/authMiddleware"); // Asegúrate de importar el middleware de protección
+
 
 // Rutas para proyectos
-router.post("/", createProject);
-router.get("/", getAllProjects);
-router.get("/:id", getProjectById);
-router.put("/:id", updateProject);
-router.delete("/:id", deleteProject);
+router.post("/", protect(["admin"]), createProject);
+router.get("/", protect(["admin", "junior", "readOnly"]), getAllProjects);
+router.get("/:id", protect(["admin", "junior"]), getProjectById);
+router.put("/:id", protect(["admin", "junior"]), updateProject);
+router.delete("/:id", protect(["admin",]), deleteProject);
 
 // Rutas para agregar cámaras y NVRs a proyectos
 router.post("/add-camera", addCameraToProject);
