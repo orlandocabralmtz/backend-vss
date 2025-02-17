@@ -1,0 +1,6 @@
+[build]
+  command = "npm install" # O el comando que instale tus dependencias
+  functions = "functions"  # O la ruta a tu carpeta de funciones serverless (si usas)
+
+[functions]
+  directory = "functions" # O la ruta a tu carpeta de funciones serverless (si usas)
