@@ -45,7 +45,7 @@ router.delete('/:cameraId', protect(["admin"]), deleteCamera);
 router.get("/:cameraId", protect(["admin", "junior", "readOnly"]), getCameraById);
 
 // Ruta para importar cámaras desde un archivo Excel (solo admin y junior)
-router.post("/import", protect(["admin", "junior"]), importCamerasFromExcel);  // Nueva ruta para importar cámaras
+router.post("/import", protect(["admin"]), importCamerasFromExcel);  // Nueva ruta para importar cámaras
 
 module.exports = router;
 
